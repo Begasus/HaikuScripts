@@ -1,0 +1,2 @@
+#/bin/sh
+qmake PREFIX=/boot/home/destdir LIBDIR=/boot/home/destdir/lib

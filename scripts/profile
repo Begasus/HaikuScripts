@@ -1,0 +1,101 @@
+function inpatch () { grep -rni $1 /Opslag/haikuports/*/*/patches/*; }
+function inrecipe { find /Opslag/haikuports -maxdepth 3 \
+	-name "*.recipe" | xargs grep -ni --col $1; }
+
+alias hp="haikuporter -j8 --no-source-packages --get-dependencies"
+
+alias gmp="git checkout master && git pull upstream master && git push origin master"
+
+squash_last_n_commits()
+{
+	if [ $# -ne 1 ] || [ "$1" -lt 2 ]; then
+		echo 'squash_last_n_commits() requires a number (>1) as the only argument ("HEAD~$1")'
+	else
+		echo "Creating '__pre_squash__state__' tag, just in case."
+		git tag "__pre_squash__state__"
+		git reset --soft HEAD~$1 && 
+		git commit --edit -m"$(git log --format=%B --reverse HEAD..HEAD@{1})"
+		if [ $? -ne 0 ]; then
+			echo "Squach operation aborted. Resetting to previous state."
+			git reset "__pre_squash__state__"
+		fi
+		git tag -d "__pre_squash__state__"
+	fi
+}
+
+function prune_git_repo() {
+	git reflog expire --expire-unreachable now --all
+	git fsck --unreachable --no-reflogs
+	git gc --prune=now
+	git fsck --unreachable --no-reflogs
+}
+
+function lintErrors() {
+	hp --lint | grep Error > /boot/home/Desktop/lint
+}
+
+# 'grep' the headers. From mmu_man.
+function hgrepall() {
+	find /boot/system/develop/headers -type f -print0 | xargs -0 grep -E "$@"
+}
+
+# Search the BeAPI only:
+function hgrep() {
+	find /boot/system/develop/headers/os -type f -print0 | xargs -0 grep -E "$@"
+}
+
+# See what libraries define the given symbol.
+function lgrep() {
+	libdir=$(ls /boot/system/lib/*.so)
+	if [ "$(uname -p)" = "x86" ]; then
+		libdir+=$(ls /boot/system/lib/x86/*.so)
+	fi
+
+	for lib in $libdir ; do
+		nm -A --defined-only $lib | grep $1
+	done
+
+	return 0
+}
+
+# Same as above, but limited to the given (system) lib.
+function lg() {
+	if [ "$#" != "2" ]; then
+		echo "No symbol specified. Use: lg <libname> <symbolname>"
+		return 1
+	fi
+	if [ -n "$1" ]; then
+		libdir="/boot/system/lib"
+		if [ "$(uname -p)" = "x86" ]; then
+			libdir="/boot/system/lib/x86"
+		fi
+		tmp="$libdir/lib$1.so"
+		if [ -e $tmp ]; then
+			echo "[ $tmp ]"
+			nm  -A --defined-only "$tmp" | grep $2
+		else
+			echo "$tmp not found"
+		fi
+	fi
+	return 0
+}
+
+list_work_dirs()
+{
+	hpdir=`haikuporter -t`
+	find $hpdir -maxdepth 5 -wholename "*/work-*/wrapper*" -printf '%h\n' | uniq
+	echo "to actually delete these dirs: > list_work_dirs | xargs rm -rf"
+}
+
+list_download_dirs()
+{
+	hpdir=`haikuporter -t`
+	find $hpdir -maxdepth 5 -wholename "*/download" -printf '%h/%f\n'
+	echo "to actually delete these dirs: > list_download_dirs | xargs rm -rf"
+}
+
+# CD to the recipe folder of the given haikuports package name.
+hpd()
+{
+	cd `haikuporter -o $1`
+}
