@@ -1,5 +1,21 @@
 #/bin/sh
-export PKG_CONFIG_PATH+=/boot/home/destdir/lib/pkgconfig/
-cmake -Bbuild -S. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/boot/home/config/non-packaged -DBUILD_TESTING=OFF -DBUILD_TESTS=OFF -DBUILD_WITH_QT6=OFF -DBUILD_doc=OFF -DUSE_QT5=1 -DECM_DIR=/system/data/cmake/Modules/ECM/cmake -DBUILD_WITH_PCH=OFF -Wno-dev -L
+PREFIX=/boot/home/destdir
+
+#export PKG_CONFIG_PATH+=/boot/home/destdir/lib/pkgconfig/
+cmake -Bbuild -S. -DCMAKE_BUILD_TYPE=Release \
+	-DCMAKE_INSTALL_PREFIX=$PREFIX \
+	-DCMAKE_INSTALL_DATADIR=$PREFIX/data \
+	-DCMAKE_INSTALL_DATAROOTDIR=$PREFIX/data \
+	-DKDE_INSTALL_PLUGINDIR=$PREFIX/add-ons/Qt6 \
+	-DKDE_INSTALL_QMLDIR=$PREFIX/data/Qt6/qml \
+	-DKDE_INSTALL_QTPLUGINDIR=$PREFIX/add-ons/Qt6 \
+	-DKDE_INSTALL_QTQCHDIR=$PREFIX/packages/qt6 \
+	-DECM_DIR=/system/data/cmake/Modules/ECM/cmake \
+	-DBUILD_WITH_QT6=ON \
+	-DBUILD_QCH=ON \
+	-DBUILD_TESTING=OFF \
+	-DBUILD_WITH_PCH=OFF \
+	-DWITH_PULSEAUDIO=OFF \
+	-DWITH_X11=OFF -Wno-dev #-L
 make -C build -j12
 make -C build install
