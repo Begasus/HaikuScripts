@@ -1,0 +1,22 @@
+#!/bin/sh
+if [ $# -eq 0 ]; then
+	echo "Usage: findpkgs <executable_filename>"
+	echo "       and no spaces in the filename, please."
+	exit 1
+fi
+echo Processing ...
+updatedb &
+tmpfile1=$(mktemp)
+tmpfile2=$(mktemp)
+tmpfile3=$(mktemp)
+objdump -x $1 |grep NEEDED | cut -d " " -f 18 - > $tmpfile1
+for i in $(cat $tmpfile1); do
+	locate -b -e -l 1 $i | sort |grep /boot/system/develop/lib >> $tmpfile2
+	locate -b -e -l 1 $i | sort | grep /boot/system/lib/ >> $tmpfile2
+done
+for i in $(cat $tmpfile2); do
+	catattr -d SYS:PACKAGE_FILE $i >> $tmpfile3 
+done 
+cat $tmpfile3 | uniq
+rm -f $tmpfile1 $tmpfile2 $tmpfile3
+exit 0

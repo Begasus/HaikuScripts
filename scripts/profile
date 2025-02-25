@@ -1,8 +1,11 @@
 function inpatch () { grep -rni $1 /Opslag/haikuports/*/*/patches/*; }
 function inrecipe { find /Opslag/haikuports -maxdepth 3 \
-	-name "*.recipe" | xargs grep -ni --col $1; }
+    -name "*.recipe" | xargs grep -ni --col $1; }
 
-alias hp="haikuporter -j8 --no-source-packages --get-dependencies"
+function inrecipebackup { find /Opslag/haikuports-backup -maxdepth 3 \
+    -name "*.recipe" | xargs grep -ni --col $1; }
+
+alias hp="haikuporter -S -j16 --no-source-packages --get-dependencies"
 
 alias gmp="git checkout master && git pull upstream master && git push origin master"
 
@@ -36,23 +39,27 @@ function lintErrors() {
 
 # 'grep' the headers. From mmu_man.
 function hgrepall() {
-	find /boot/system/develop/headers -type f -print0 | xargs -0 grep -E "$@"
+	find /boot/system/develop/headers -type f -print0 | xargs -0 grep -n -E "$@"
 }
 
 # Search the BeAPI only:
 function hgrep() {
-	find /boot/system/develop/headers/os -type f -print0 | xargs -0 grep -E "$@"
+	find /boot/system/develop/headers/os -type f -print0 | xargs -0 grep -n -E "$@"
 }
 
 # See what libraries define the given symbol.
 function lgrep() {
-	libdir=$(ls /boot/system/lib/*.so)
+	libdir=$(/bin/ls /boot/system/lib/*.so.*)
 	if [ "$(uname -p)" = "x86" ]; then
-		libdir+=$(ls /boot/system/lib/x86/*.so)
+		libx86dir=$(/bin/ls /boot/system/lib/x86/*.so.*)
+		libdir=("${libx86dir[0]}")
 	fi
 
-	for lib in $libdir ; do
-		nm -A --defined-only $lib | grep $1
+	for lib in $libdir; do
+		if [ -L $lib ]; then
+			continue
+		fi
+		nm -A -C -g $lib | grep $1
 	done
 
 	return 0
@@ -99,3 +106,47 @@ hpd()
 {
 	cd `haikuporter -o $1`
 }
+
+# Fetches and checkouts PR #$2 from remote $1.
+# eg (inside haikuport's repo): checkout_pr upstream 10677
+checkout_pr()
+{
+	echo "Checking out '$1' PR #$2"
+	git fetch $1 pull/$2/head:pr/$2 && git checkout pr/$2
+}
+
+# List packages built by me, that are installed in /system/packages/
+function system_installed_packages_built_by_me() {
+	for f in /system/packages/*.hpkg; do
+		out=$(package list -i $f | grep "Begasus") # grep for your own email here
+		if [[ $out ]]; then
+			echo $f
+		fi
+	done
+}
+
+download_hpkg()
+{
+	local package=$1
+	local arch=haikuports_$(getarch)
+	local json='{"name":"'"$package"'","repositorySourceCode":"'"$arch"'","versionType":"LATEST","naturalLanguageCode":"en"}'
+
+	echo "Getting download URL for $package..."
+
+	local url=$(wget -qO- --post-data="$json" --header='Content-Type:application/json' 'https://depot.haiku-os.org/__api/v2/pkg/get-pkg' | jq -r '.result.versions[].hpkgDownloadURL' 2>/dev/null)
+
+	echo "url: $url"
+
+	if [ $? -eq 0 ]; then
+		echo "Downloading $package at $url..."
+		wget -q "$url"
+	else
+		echo "Unable to locate $package for downloading"
+	fi
+}
+
+function killall() {
+	pidof $1 | while read in; do kill -9 "$in"; done
+}
+
+export KIRIGAMI_LOWPOWER_HARDWARE=1
