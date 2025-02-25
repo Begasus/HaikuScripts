@@ -1,0 +1,5 @@
+#/bin/sh
+cargo fetch --locked
+cargo build --release --frozen
+
+# cargo install --locked --root $prefix --path .
